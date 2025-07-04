@@ -38,7 +38,7 @@ const client = new Client({
   partials: [Partials.Channel],
 });
 
-// Health route to keep the bot alive (used by uptime services)
+// Health route to keep the bot alive
 app.get('/', (req, res) => {
   res.send('Discord bot is running!');
 });
@@ -50,12 +50,12 @@ app.get('/health', (req, res) => {
 // === CONFIGURATION ===
 const BOT_TOKEN = process.env.BOT_TOKEN;
 
-// Channel IDs
-const TICKET_CHANNEL_ID = process.env.TICKET_CHANNEL_ID || '1362971895716249651'; // Panel channel
-const WELCOME_CHANNEL_ID = process.env.WELCOME_CHANNEL_ID || '1390466348227891261'; // Welcome channel
-const LOG_CHANNEL_ID = process.env.LOG_CHANNEL_ID || '1368931765439299584'; // Log channel
-const STAFF_ROLE_ID = process.env.STAFF_ROLE_ID || '1378772752558981296'; // Staff role ID
-const OWNER_ROLE_ID = process.env.OWNER_ROLE_ID || '1354748863633821716'; // Owner role ID
+// Hardcoded IDs
+const TICKET_CHANNEL_ID = '1362971895716249651'; // Panel channel
+const WELCOME_CHANNEL_ID = '1390466348227891261'; // Welcome channel
+const LOG_CHANNEL_ID = '1368931765439299584';     // Log channel
+const STAFF_ROLE_ID = '1378772752558981296';      // Staff role ID
+const OWNER_ROLE_ID = '1354748863633821716';      // Owner role ID
 
 let ticketPanelMessage = null;
 
@@ -71,11 +71,11 @@ client.once('ready', async () => {
   console.log(`Logged in as ${client.user.tag}`);
 
   const guild = client.guilds.cache.first();
-  const ticketChannel = guild.channels.cache.get(TICKET_CHANNEL_ID);
+  if (!guild) return console.error("Bot is not in any guild.");
 
+  const ticketChannel = guild.channels.cache.get(TICKET_CHANNEL_ID);
   if (!ticketChannel) {
-    console.error("Ticket channel not found.");
-    return;
+    return console.error("Ticket channel not found.");
   }
 
   // Create or find categories
@@ -84,17 +84,22 @@ client.once('ready', async () => {
       ch => ch.name === key && ch.type === ChannelType.GuildCategory
     );
     if (!category) {
-      category = await guild.channels.create({
-        name: key,
-        type: ChannelType.GuildCategory,
-      });
+      try {
+        category = await guild.channels.create({
+          name: key,
+          type: ChannelType.GuildCategory,
+        });
+      } catch (err) {
+        console.error(`Failed to create category: ${key}`, err);
+        continue;
+      }
     }
     CATEGORIES[key] = category;
   }
 
   // Ticket panel embed
   const embed = new EmbedBuilder()
-    .setTitle('🎫 Welcome to the Time Esport Ticket Center')
+    .setTitle('🎫 Welcome to the Support Center')
     .setDescription('Please choose one of the options below to open a ticket.')
     .setColor(0x5865F2)
     .setThumbnail(guild.iconURL({ dynamic: true }))
@@ -149,7 +154,7 @@ client.once('ready', async () => {
       console.log("Sent new ticket panel.");
     }
   } catch (error) {
-    console.error("Failed to update/send ticket panel:", error);
+    console.error("Failed to update/send ticket panel:", error.message);
   }
 });
 
@@ -159,8 +164,7 @@ client.on('guildMemberAdd', async (member) => {
   const welcomeChannel = guild.channels.cache.get(WELCOME_CHANNEL_ID);
 
   if (!welcomeChannel) {
-    console.error("Welcome channel not found.");
-    return;
+    return console.error("Welcome channel not found.");
   }
 
   const welcomeEmbed = new EmbedBuilder()
@@ -171,217 +175,232 @@ client.on('guildMemberAdd', async (member) => {
     .setFooter({ text: 'Enjoy your journey!' })
     .setTimestamp();
 
-  await welcomeChannel.send({ embeds: [welcomeEmbed] });
+  await welcomeChannel.send({ embeds: [welcomeEmbed] }).catch(console.error);
 });
 
 // === INTERACTION HANDLER ===
 client.on('interactionCreate', async (interaction) => {
   try {
-    if (interaction.isButton()) {
-      const userId = interaction.user.id;
-      const guild = interaction.guild;
-      const customId = interaction.customId;
+    if (!interaction.isButton()) return;
 
-      // Handle ticket creation
-      if (['join_team', 'join_staff', 'support', 'contact_owner'].includes(customId)) {
-        const existingChannel = guild.channels.cache.find(
-          c => c.name === `ticket-${userId}` && c.parentId === CATEGORIES[customId]?.id
-        );
+    const userId = interaction.user.id;
+    const guild = interaction.guild;
+    const customId = interaction.customId;
 
-        if (existingChannel) {
-          return interaction.reply({
-            content: `You already have an open ticket: ${existingChannel}`,
-            ephemeral: true,
-          });
-        }
+    // Handle ticket creation
+    if (['join_team', 'join_staff', 'support', 'contact_owner'].includes(customId)) {
+      const existingChannel = guild.channels.cache.find(
+        c =>
+          c.name === `ticket-${userId}` &&
+          c.parentId === CATEGORIES[customId]?.id
+      );
 
-        if (customId === 'join_staff') {
-          // Show application modal
-          const modal = new ModalBuilder()
-            .setCustomId('staff_application')
-            .setTitle('Staff Application');
-
-          const fullNameInput = new TextInputBuilder()
-            .setCustomId('full_name')
-            .setLabel("What's your full name?")
-            .setStyle(TextInputStyle.Short)
-            .setRequired(true);
-
-          const userIdInput = new TextInputBuilder()
-            .setCustomId('user_id')
-            .setLabel("User ID")
-            .setValue(userId)
-            .setStyle(TextInputStyle.Short)
-            .setDisabled(true)
-            .setRequired(true);
-
-          const resumeInput = new TextInputBuilder()
-            .setCustomId('resume')
-            .setLabel("Tell us about your experience")
-            .setPlaceholder("e.g., Previous roles, skills, etc.")
-            .setStyle(TextInputStyle.Paragraph)
-            .setRequired(true);
-
-          const row1 = new ActionRowBuilder().addComponents(fullNameInput);
-          const row2 = new ActionRowBuilder().addComponents(userIdInput);
-          const row3 = new ActionRowBuilder().addComponents(resumeInput);
-
-          modal.addComponents(row1, row2, row3);
-
-          await interaction.showModal(modal);
-          return;
-        }
-
-        // For all non-staff tickets
-        let overwrites = [
-          { id: guild.roles.everyone, deny: ['ViewChannel'] },
-          { id: userId, allow: ['ViewChannel', 'SendMessages', 'ReadMessageHistory'] },
-        ];
-
-        if (customId !== 'contact_owner') {
-          overwrites.push({ id: STAFF_ROLE_ID, allow: ['ViewChannel', 'SendMessages', 'ReadMessageHistory'] });
-        } else {
-          overwrites.push({ id: OWNER_ROLE_ID, allow: ['ViewChannel', 'SendMessages', 'ReadMessageHistory'] });
-        }
-
-        const ticketChannel = await guild.channels.create({
-          name: `ticket-${userId}`,
-          type: ChannelType.GuildText,
-          parent: CATEGORIES[customId].id,
-          permissionOverwrites: overwrites,
-        });
-
-        const embed = new EmbedBuilder()
-          .setTitle(`${customId.replace('_', ' ').toProperCase()} Ticket`)
-          .setDescription(`Hello <@${userId}>, this is your ticket. Please describe your request.`)
-          .setColor(0x00ff00)
-          .setFooter({ text: 'Click the close button when done.' });
-
-        const closeBtn = new ActionRowBuilder().addComponents(
-          new ButtonBuilder()
-            .setCustomId('close_ticket')
-            .setLabel('Close Ticket')
-            .setEmoji('🔒')
-            .setStyle(ButtonStyle.Danger)
-        );
-
-        await ticketChannel.send({ content: `<@${userId}>`, embeds: [embed], components: [closeBtn] });
-
+      if (existingChannel) {
         return interaction.reply({
-          content: `Your ticket has been created: ${ticketChannel}`,
+          content: `You already have an open ticket: ${existingChannel}`,
           ephemeral: true,
         });
       }
 
-      if (customId === 'close_ticket') {
+      if (customId === 'join_staff') {
         const modal = new ModalBuilder()
-          .setCustomId('close_confirm_modal')
-          .setTitle('Confirm Closing Ticket');
+          .setCustomId('staff_application')
+          .setTitle('Staff Application');
 
-        const reasonInput = new TextInputBuilder()
-          .setCustomId('close_reason')
-          .setLabel('Reason for closing (optional)')
+        const fullNameInput = new TextInputBuilder()
+          .setCustomId('full_name')
+          .setLabel("What's your full name?")
+          .setStyle(TextInputStyle.Short)
+          .setRequired(true);
+
+        const userIdInput = new TextInputBuilder()
+          .setCustomId('user_id')
+          .setLabel("User ID")
+          .setValue(userId)
+          .setStyle(TextInputStyle.Short)
+          .setDisabled(true)
+          .setRequired(true);
+
+        const resumeInput = new TextInputBuilder()
+          .setCustomId('resume')
+          .setLabel("Tell us about your experience")
+          .setPlaceholder("e.g., Previous roles, skills, etc.")
           .setStyle(TextInputStyle.Paragraph)
-          .setRequired(false)
-          .setPlaceholder('Enter optional reason here...');
+          .setRequired(true);
 
-        const actionRow = new ActionRowBuilder().addComponents(reasonInput);
-        modal.addComponents(actionRow);
+        const row1 = new ActionRowBuilder().addComponents(fullNameInput);
+        const row2 = new ActionRowBuilder().addComponents(userIdInput);
+        const row3 = new ActionRowBuilder().addComponents(resumeInput);
+
+        modal.addComponents(row1, row2, row3);
 
         await interaction.showModal(modal);
+        return;
       }
+
+      // For non-staff tickets
+      let overwrites = [
+        { id: guild.roles.everyone, deny: ['ViewChannel'] },
+        { id: userId, allow: ['ViewChannel', 'SendMessages', 'ReadMessageHistory'] },
+      ];
+
+      if (customId !== 'contact_owner') {
+        overwrites.push({ id: STAFF_ROLE_ID, allow: ['ViewChannel', 'SendMessages', 'ReadMessageHistory'] });
+      } else {
+        overwrites.push({ id: OWNER_ROLE_ID, allow: ['ViewChannel', 'SendMessages', 'ReadMessageHistory'] });
+      }
+
+      const ticketChannel = await guild.channels.create({
+        name: `ticket-${userId}`,
+        type: ChannelType.GuildText,
+        parent: CATEGORIES[customId].id,
+        permissionOverwrites: overwrites,
+      });
+
+      const embed = new EmbedBuilder()
+        .setTitle(`${customId.replace('_', ' ').toProperCase()} Ticket`)
+        .setDescription(`Hello <@${userId}>, this is your ticket. Please describe your request.`)
+        .setColor(0x00ff00)
+        .setFooter({ text: 'Click the close button when done.' });
+
+      const closeBtn = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId('close_ticket')
+          .setLabel('Close Ticket')
+          .setEmoji('🔒')
+          .setStyle(ButtonStyle.Danger)
+      );
+
+      await ticketChannel.send({ content: `<@${userId}>`, embeds: [embed], components: [closeBtn] });
+
+      return interaction.reply({
+        content: `Your ticket has been created: ${ticketChannel}`,
+        ephemeral: true,
+      });
     }
 
-    if (interaction.isModalSubmit()) {
-      const modalId = interaction.customId;
+    if (customId === 'close_ticket') {
+      const modal = new ModalBuilder()
+        .setCustomId('close_confirm_modal')
+        .setTitle('Confirm Closing Ticket');
 
-      if (modalId === 'staff_application') {
-        const fullName = interaction.fields.getTextInputValue('full_name');
-        const userId = interaction.fields.getTextInputValue('user_id');
-        const resume = interaction.fields.getTextInputValue('resume');
+      const reasonInput = new TextInputBuilder()
+        .setCustomId('close_reason')
+        .setLabel('Reason for closing (optional)')
+        .setStyle(TextInputStyle.Paragraph)
+        .setRequired(false)
+        .setPlaceholder('Enter optional reason here...');
 
-        const guild = interaction.guild;
-        const user = interaction.user;
+      const actionRow = new ActionRowBuilder().addComponents(reasonInput);
+      modal.addComponents(actionRow);
 
-        // Create ticket
-        const overwrites = [
-          { id: guild.roles.everyone, deny: ['ViewChannel'] },
-          { id: userId, allow: ['ViewChannel', 'SendMessages', 'ReadMessageHistory'] },
-          { id: STAFF_ROLE_ID, allow: ['ViewChannel', 'SendMessages', 'ReadMessageHistory'] },
-        ];
-
-        const ticketChannel = await guild.channels.create({
-          name: `ticket-${userId}`,
-          type: ChannelType.GuildText,
-          parent: CATEGORIES['join_staff'].id,
-          permissionOverwrites: overwrites,
-        });
-
-        const staffEmbed = new EmbedBuilder()
-          .setTitle('👨‍💼 Staff Application Received')
-          .addFields(
-            { name: 'Full Name', value: fullName },
-            { name: 'User ID', value: userId },
-            { name: 'Resume / Experience', value: resume }
-          )
-          .setColor(0x00ff00)
-          .setFooter({ text: 'Click the close button when done.' });
-
-        const closeBtn = new ActionRowBuilder().addComponents(
-          new ButtonBuilder()
-            .setCustomId('close_ticket')
-            .setLabel('Close Ticket')
-            .setEmoji('🔒')
-            .setStyle(ButtonStyle.Danger)
-        );
-
-        await ticketChannel.send({ content: `<@${userId}>`, embeds: [staffEmbed], components: [closeBtn] });
-
-        return interaction.reply({
-          content: `Your staff application ticket has been created: ${ticketChannel}`,
-          ephemeral: true,
-        });
-      }
-
-      if (modalId === 'close_confirm_modal') {
-        const reason = interaction.fields.getTextInputValue('close_reason') || 'No reason provided.';
-        const user = interaction.user;
-        const channel = interaction.channel;
-
-        const confirmEmbed = new EmbedBuilder()
-          .setTitle('🔒 Ticket Closed')
-          .setDescription(`This ticket was closed by <@${user.id}>.\n\n**Reason:**\n${reason}`)
-          .setColor(0xff0000);
-
-        await interaction.reply({ embeds: [confirmEmbed] });
-
-        const logChannel = interaction.guild.channels.cache.get(LOG_CHANNEL_ID);
-        if (logChannel) {
-          const logEmbed = new EmbedBuilder()
-            .setTitle('🗂️ Ticket Closed Log')
-            .addFields(
-              { name: 'Closed By', value: `<@${user.id}> (${user.tag})` },
-              { name: 'Reason', value: reason },
-              { name: 'Ticket Channel', value: `#${channel.name}` }
-            )
-            .setColor(0x5865f2)
-            .setTimestamp();
-
-          await logChannel.send({ embeds: [logEmbed] });
-        }
-
-        setTimeout(async () => {
-          await channel.delete();
-        }, 5000);
-      }
+      await interaction.showModal(modal);
     }
   } catch (error) {
     console.error('Interaction Error:', error.message);
     if (error.code !== 40060) {
-      await interaction.followUp({
-        content: 'An unexpected error occurred.',
+      try {
+        await interaction.reply({
+          content: 'An unexpected error occurred.',
+          ephemeral: true,
+        });
+      } catch {}
+    }
+  }
+});
+
+// === MODAL SUBMIT HANDLER ===
+client.on('modalSubmit', async (interaction) => {
+  try {
+    const modalId = interaction.customId;
+
+    if (modalId === 'staff_application') {
+      const fullName = interaction.fields.getTextInputValue('full_name');
+      const userId = interaction.fields.getTextInputValue('user_id');
+      const resume = interaction.fields.getTextInputValue('resume');
+
+      const guild = interaction.guild;
+
+      // Create ticket
+      const overwrites = [
+        { id: guild.roles.everyone, deny: ['ViewChannel'] },
+        { id: userId, allow: ['ViewChannel', 'SendMessages', 'ReadMessageHistory'] },
+        { id: STAFF_ROLE_ID, allow: ['ViewChannel', 'SendMessages', 'ReadMessageHistory'] },
+      ];
+
+      const ticketChannel = await guild.channels.create({
+        name: `ticket-${userId}`,
+        type: ChannelType.GuildText,
+        parent: CATEGORIES['join_staff'].id,
+        permissionOverwrites: overwrites,
+      });
+
+      const staffEmbed = new EmbedBuilder()
+        .setTitle('👨‍💼 Staff Application Received')
+        .addFields(
+          { name: 'Full Name', value: fullName },
+          { name: 'User ID', value: userId },
+          { name: 'Resume / Experience', value: resume }
+        )
+        .setColor(0x00ff00)
+        .setFooter({ text: 'Click the close button when done.' });
+
+      const closeBtn = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId('close_ticket')
+          .setLabel('Close Ticket')
+          .setEmoji('🔒')
+          .setStyle(ButtonStyle.Danger)
+      );
+
+      await ticketChannel.send({ content: `<@${userId}>`, embeds: [staffEmbed], components: [closeBtn] });
+
+      return interaction.reply({
+        content: `Your staff application ticket has been created: ${ticketChannel}`,
         ephemeral: true,
-      }).catch(() => {});
+      });
+    }
+
+    if (modalId === 'close_confirm_modal') {
+      const reason = interaction.fields.getTextInputValue('close_reason') || 'No reason provided.';
+      const user = interaction.user;
+      const channel = interaction.channel;
+
+      const confirmEmbed = new EmbedBuilder()
+        .setTitle('🔒 Ticket Closed')
+        .setDescription(`This ticket was closed by <@${user.id}>.\n\n**Reason:**\n${reason}`)
+        .setColor(0xff0000);
+
+      await interaction.reply({ embeds: [confirmEmbed] });
+
+      const logChannel = interaction.guild.channels.cache.get(LOG_CHANNEL_ID);
+      if (logChannel) {
+        const logEmbed = new EmbedBuilder()
+          .setTitle('🗂️ Ticket Closed Log')
+          .addFields(
+            { name: 'Closed By', value: `<@${user.id}> (${user.tag})` },
+            { name: 'Reason', value: reason },
+            { name: 'Ticket Channel', value: `#${channel.name}` }
+          )
+          .setColor(0x5865f2)
+          .setTimestamp();
+
+        await logChannel.send({ embeds: [logEmbed] }).catch(console.error);
+      }
+
+      setTimeout(async () => {
+        await channel.delete().catch(console.error);
+      }, 5000);
+    }
+  } catch (error) {
+    console.error('Modal Submit Error:', error.message);
+    if (error.code !== 40060) {
+      try {
+        await interaction.reply({
+          content: 'An unexpected error occurred during submission.',
+          ephemeral: true,
+        });
+      } catch {}
     }
   }
 });
