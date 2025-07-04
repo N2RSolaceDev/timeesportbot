@@ -26,8 +26,9 @@ const client = new Client({
 // === CONFIGURATION ===
 const BOT_TOKEN = process.env.BOT_TOKEN;
 
-// Hardcoded sensitive values (not exposed to .env)
-const TICKET_CHANNEL_ID = '1362971895716249651';
+// Hardcoded sensitive values
+const TICKET_CHANNEL_ID = '1362971895716249651'; // Panel channel
+const LOG_CHANNEL_ID = '1368931765439299584';     // Log channel
 const STAFF_ROLE_ID = '1378772752558981296';
 const OWNER_ROLE_ID = '1354748863633821716';
 
@@ -72,6 +73,14 @@ client.once('ready', async () => {
     .setDescription('Please choose one of the options below to open a ticket.')
     .setColor(0x5865F2)
     .setThumbnail(guild.iconURL({ dynamic: true }))
+    .setImage('https://i.imgur.com/6QbX6yA.png ') // Optional: Add banner image
+    .addFields(
+      { name: '🎮 Join Team', value: 'Apply to join our team.', inline: true },
+      { name: '👨‍💼 Join Staff', value: 'Apply to become staff.', inline: true },
+      { name: '❓ Support', value: 'Get help from support.', inline: true },
+      { name: '🧑 Contact Owner', value: 'Contact the server owner directly.' }
+    )
+    .setFooter({ text: 'Powered by Solace' })
     .setTimestamp();
 
   const rowOne = new ActionRowBuilder().addComponents(
@@ -202,23 +211,37 @@ client.on('interactionCreate', async interaction => {
   }
 });
 
-// === MODAL HANDLER ===
+// === MODAL HANDLER & LOGGING ===
 client.on('interactionCreate', async interaction => {
   if (!interaction.isModalSubmit()) return;
-
-  const channelId = interaction.channel.id;
-  const userId = interaction.user.id;
 
   if (interaction.customId === 'close_confirm_modal') {
     const reason = interaction.fields.getTextInputValue('close_reason') || 'No reason provided.';
     const channel = interaction.channel;
+    const user = interaction.user;
 
     const confirmEmbed = new EmbedBuilder()
       .setTitle('🔒 Ticket Closed')
-      .setDescription(`This ticket was closed by <@${userId}>.\n\n**Reason:**\n${reason}`)
+      .setDescription(`This ticket was closed by <@${user.id}>.\n\n**Reason:**\n${reason}`)
       .setColor(0xff0000);
 
     await interaction.reply({ embeds: [confirmEmbed], components: [] });
+
+    // Send to log channel
+    const logChannel = interaction.guild.channels.cache.get(LOG_CHANNEL_ID);
+    if (logChannel) {
+      const logEmbed = new EmbedBuilder()
+        .setTitle('🗂️ Ticket Closed Log')
+        .addFields(
+          { name: 'Closed By', value: `<@${user.id}> (${user.tag})` },
+          { name: 'Reason', value: reason },
+          { name: 'Ticket Channel', value: `#${channel.name}` }
+        )
+        .setColor(0x5865f2)
+        .setTimestamp();
+
+      await logChannel.send({ embeds: [logEmbed] });
+    }
 
     setTimeout(async () => {
       await channel.delete();
