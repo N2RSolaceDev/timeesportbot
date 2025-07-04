@@ -13,13 +13,14 @@ const {
 } = require('discord.js');
 
 require('dotenv').config();
+
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
     GatewayIntentBits.GuildMembers,
-    GatewayIntentBits.GuildMemberAdd, // Required for member join event
+    GatewayIntentBits.GuildMemberAdd,
   ],
   partials: [Partials.Channel],
 });
@@ -152,7 +153,7 @@ client.on('guildMemberAdd', async (member) => {
   await welcomeChannel.send({ embeds: [welcomeEmbed] });
 });
 
-// === SINGLE INTERACTION HANDLER ===
+// === INTERACTION HANDLER ===
 client.on('interactionCreate', async (interaction) => {
   try {
     if (interaction.isButton()) {
