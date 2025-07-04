@@ -12,17 +12,39 @@ const {
   ChannelType,
 } = require('discord.js');
 
-require('dotenv').config();
+const express = require('express');
+const dotenv = require('dotenv');
 
-// Initialize the client with correct intents
+// Load environment variables
+dotenv.config();
+
+// Initialize Express app
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// Start Express server
+app.listen(PORT, () => {
+  console.log(`Server is running on http://localhost:${PORT}`);
+});
+
+// === DISCORD BOT SETUP ===
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
-    GatewayIntentBits.GuildMembers, // Covers member join events
+    GatewayIntentBits.GuildMembers,
   ],
   partials: [Partials.Channel],
+});
+
+// Health route to keep the bot alive (used by uptime services)
+app.get('/', (req, res) => {
+  res.send('Discord bot is running!');
+});
+
+app.get('/health', (req, res) => {
+  res.json({ status: 'OK', uptime: process.uptime() });
 });
 
 // === CONFIGURATION ===
