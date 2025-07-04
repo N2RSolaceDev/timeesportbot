@@ -1,7 +1,7 @@
 {
-  "name": "discord-bot",
+  "name": "solace-ticket-bot",
   "version": "1.0.0",
-  "description": "A simple, working Discord bot with welcome message and ticket system.",
+  "description": "A secure and scalable Discord ticket bot built with Discord.js v14 and dotenv.",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
@@ -12,5 +12,6 @@
   },
   "engines": {
     "node": "18.x || 20.x"
-  }
+  },
+  "private": true
 }
