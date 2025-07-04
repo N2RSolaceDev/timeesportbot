@@ -11,7 +11,6 @@ const {
   TextInputStyle,
   ChannelType,
 } = require('discord.js');
-
 const express = require('express');
 const dotenv = require('dotenv');
 
@@ -42,7 +41,6 @@ const client = new Client({
 app.get('/', (req, res) => {
   res.send('Discord bot is running!');
 });
-
 app.get('/health', (req, res) => {
   res.json({ status: 'OK', uptime: process.uptime() });
 });
@@ -73,9 +71,13 @@ client.once('ready', async () => {
   const guild = client.guilds.cache.first();
   if (!guild) return console.error("Bot is not in any guild.");
 
-  const ticketChannel = guild.channels.cache.get(TICKET_CHANNEL_ID);
+  let ticketChannel = guild.channels.cache.get(TICKET_CHANNEL_ID);
   if (!ticketChannel) {
-    return console.error("Ticket channel not found.");
+    try {
+      ticketChannel = await guild.channels.fetch(TICKET_CHANNEL_ID);
+    } catch (err) {
+      return console.error("Ticket channel not found after fetch:", err.message);
+    }
   }
 
   // Create or find categories
@@ -118,13 +120,11 @@ client.once('ready', async () => {
       .setLabel('Join Team')
       .setEmoji('🎮')
       .setStyle(ButtonStyle.Primary),
-
     new ButtonBuilder()
       .setCustomId('join_staff')
       .setLabel('Join Staff')
       .setEmoji('👨‍💼')
       .setStyle(ButtonStyle.Primary),
-
     new ButtonBuilder()
       .setCustomId('support')
       .setLabel('Support')
@@ -143,7 +143,6 @@ client.once('ready', async () => {
   try {
     const fetchedMessages = await ticketChannel.messages.fetch({ limit: 10 });
     const panelMessage = fetchedMessages.find(m => m.author.id === client.user.id && m.embeds.length > 0);
-
     if (panelMessage) {
       await panelMessage.edit({ embeds: [embed], components: [rowOne, rowTwo] });
       ticketPanelMessage = panelMessage;
@@ -162,7 +161,6 @@ client.once('ready', async () => {
 client.on('guildMemberAdd', async (member) => {
   const guild = member.guild;
   const welcomeChannel = guild.channels.cache.get(WELCOME_CHANNEL_ID);
-
   if (!welcomeChannel) {
     return console.error("Welcome channel not found.");
   }
@@ -194,7 +192,6 @@ client.on('interactionCreate', async (interaction) => {
           c.name === `ticket-${userId}` &&
           c.parentId === CATEGORIES[customId]?.id
       );
-
       if (existingChannel) {
         return interaction.reply({
           content: `You already have an open ticket: ${existingChannel}`,
@@ -292,6 +289,7 @@ client.on('interactionCreate', async (interaction) => {
         .setPlaceholder('Enter optional reason here...');
 
       const actionRow = new ActionRowBuilder().addComponents(reasonInput);
+
       modal.addComponents(actionRow);
 
       await interaction.showModal(modal);
@@ -318,7 +316,6 @@ client.on('modalSubmit', async (interaction) => {
       const fullName = interaction.fields.getTextInputValue('full_name');
       const userId = interaction.fields.getTextInputValue('user_id');
       const resume = interaction.fields.getTextInputValue('resume');
-
       const guild = interaction.guild;
 
       // Create ticket
@@ -368,7 +365,7 @@ client.on('modalSubmit', async (interaction) => {
 
       const confirmEmbed = new EmbedBuilder()
         .setTitle('🔒 Ticket Closed')
-        .setDescription(`This ticket was closed by <@${user.id}>.\n\n**Reason:**\n${reason}`)
+        .setDescription(`This ticket was closed by <@${user.id}>.\n**Reason:**\n${reason}`)
         .setColor(0xff0000);
 
       await interaction.reply({ embeds: [confirmEmbed] });
