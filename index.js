@@ -1,4 +1,4 @@
-const {
+import {
   Client,
   GatewayIntentBits,
   Partials,
@@ -10,9 +10,10 @@ const {
   ModalBuilder,
   TextInputBuilder,
   TextInputStyle,
-} = require('discord.js');
+} from 'discord.js';
 
-require('dotenv').config();
+import dotenv from 'dotenv';
+dotenv.config();
 
 const client = new Client({
   intents: [
@@ -145,7 +146,7 @@ client.on('guildMemberAdd', async (member) => {
     .setTitle(`👋 Welcome to ${guild.name}, ${member.displayName}!`)
     .setDescription('We’re excited to have you here! Make sure to read the rules and enjoy your stay!')
     .setColor(0x00ff00)
-    .setImage('https://solbot.store/logo.png ') // Banner image
+    .setImage(' https://solbot.store/logo.png ') // Banner image
     .setThumbnail(member.displayAvatarURL({ dynamic: true }))
     .setFooter({ text: 'Enjoy your journey!' })
     .setTimestamp();
