@@ -3,13 +3,14 @@
   "version": "2.1.0",
   "description": "A secure and scalable Discord ticket bot built with Discord.js v14 and dotenv.",
   "main": "index.js",
+  "type": "module",
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
     "lint": "eslint . --ext .js",
     "format": "prettier --write .",
     "test": "echo \"No tests yet. Coming soon.\"",
-    "deploy": "npm run format && npm run lint && npm start"
+    "deploy": "npm run format && npm run lint && node index.js"
   },
   "repository": {
     "type": "git",
@@ -23,16 +24,16 @@
   },
   "homepage": "https://github.com/yourusername/solace-ticket-bot#readme",
   "dependencies": {
-    "discord.js": "^14.15.3",
-    "dotenv": "^16.0.3"
+    "discord.js": "^14.16.0",
+    "dotenv": "^16.3.1"
   },
   "devDependencies": {
-    "eslint": "^8.37.0",
+    "eslint": "^8.56.0",
     "prettier": "^3.2.4",
     "nodemon": "^2.0.22"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": "18.x || 20.x"
   },
   "private": true
 }
