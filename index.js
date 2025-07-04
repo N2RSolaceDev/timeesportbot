@@ -94,7 +94,7 @@ client.once('ready', async () => {
 
   // Ticket panel embed
   const embed = new EmbedBuilder()
-    .setTitle('🎫 Welcome to the Support Center')
+    .setTitle('🎫 Welcome to the Time Esport Ticket Center')
     .setDescription('Please choose one of the options below to open a ticket.')
     .setColor(0x5865F2)
     .setThumbnail(guild.iconURL({ dynamic: true }))
