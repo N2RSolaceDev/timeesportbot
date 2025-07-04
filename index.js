@@ -196,6 +196,35 @@ client.on('interactionCreate', async (interaction) => {
           });
         }
 
+        // If it's a "Join Staff" ticket, show modal
+        if (customId === 'join_staff') {
+          const staffApplyModal = new ModalBuilder()
+            .setCustomId('staff_application')
+            .setTitle('Staff Application');
+
+          const fullNameInput = new TextInputBuilder()
+            .setCustomId('full_name')
+            .setLabel("What's your full name?")
+            .setStyle(TextInputStyle.Short)
+            .setRequired(true);
+
+          const resumeInput = new TextInputBuilder()
+            .setCustomId('resume')
+            .setLabel("Tell us about your experience")
+            .setStyle(TextInputStyle.Paragraph)
+            .setRequired(true)
+            .setPlaceholder("e.g., Previous roles, skills, etc.");
+
+          const actionRow1 = new ActionRowBuilder().addComponents(fullNameInput);
+          const actionRow2 = new ActionRowBuilder().addComponents(resumeInput);
+
+          staffApplyModal.addComponents(actionRow1, actionRow2);
+
+          await interaction.showModal(staffApplyModal);
+          return;
+        }
+
+        // Otherwise create the ticket
         let overwrites = [
           { id: guild.roles.everyone, deny: ['ViewChannel'] },
           { id: userId, allow: ['ViewChannel', 'SendMessages', 'ReadMessageHistory'] },
@@ -256,36 +285,88 @@ client.on('interactionCreate', async (interaction) => {
       }
     }
 
-    if (interaction.isModalSubmit() && interaction.customId === 'close_confirm_modal') {
-      const reason = interaction.fields.getTextInputValue('close_reason') || 'No reason provided.';
-      const user = interaction.user;
-      const channel = interaction.channel;
+    if (interaction.isModalSubmit()) {
+      const modalId = interaction.customId;
 
-      const confirmEmbed = new EmbedBuilder()
-        .setTitle('🔒 Ticket Closed')
-        .setDescription(`This ticket was closed by <@${user.id}>.\n\n**Reason:**\n${reason}`)
-        .setColor(0xff0000);
+      if (modalId === 'staff_application') {
+        const fullName = interaction.fields.getTextInputValue('full_name');
+        const resume = interaction.fields.getTextInputValue('resume');
+        const user = interaction.user;
+        const guild = interaction.guild;
 
-      await interaction.reply({ embeds: [confirmEmbed] });
+        const userId = user.id;
 
-      const logChannel = interaction.guild.channels.cache.get(LOG_CHANNEL_ID);
-      if (logChannel) {
-        const logEmbed = new EmbedBuilder()
-          .setTitle('🗂️ Ticket Closed Log')
+        // Create ticket after modal submission
+        let overwrites = [
+          { id: guild.roles.everyone, deny: ['ViewChannel'] },
+          { id: userId, allow: ['ViewChannel', 'SendMessages', 'ReadMessageHistory'] },
+          { id: STAFF_ROLE_ID, allow: ['ViewChannel', 'SendMessages', 'ReadMessageHistory'] },
+        ];
+
+        const ticketChannel = await guild.channels.create({
+          name: `ticket-${userId}`,
+          type: ChannelType.GuildText,
+          parent: CATEGORIES['join_staff'].id,
+          permissionOverwrites: overwrites,
+        });
+
+        const staffEmbed = new EmbedBuilder()
+          .setTitle('👨‍💼 Staff Application Received')
           .addFields(
-            { name: 'Closed By', value: `<@${user.id}> (${user.tag})` },
-            { name: 'Reason', value: reason },
-            { name: 'Ticket Channel', value: `#${channel.name}` }
+            { name: 'Full Name', value: fullName },
+            { name: 'User ID', value: userId },
+            { name: 'Resume / Experience', value: resume }
           )
-          .setColor(0x5865f2)
-          .setTimestamp();
+          .setColor(0x00ff00)
+          .setFooter({ text: 'Click the close button when done.' });
 
-        await logChannel.send({ embeds: [logEmbed] });
+        const closeBtn = new ActionRowBuilder().addComponents(
+          new ButtonBuilder()
+            .setCustomId('close_ticket')
+            .setLabel('Close Ticket')
+            .setEmoji('🔒')
+            .setStyle(ButtonStyle.Danger)
+        );
+
+        await ticketChannel.send({ content: `<@${userId}>`, embeds: [staffEmbed], components: [closeBtn] });
+
+        return interaction.reply({
+          content: `Your staff application ticket has been created: ${ticketChannel}`,
+          ephemeral: true,
+        });
       }
 
-      setTimeout(async () => {
-        await channel.delete();
-      }, 5000);
+      if (modalId === 'close_confirm_modal') {
+        const reason = interaction.fields.getTextInputValue('close_reason') || 'No reason provided.';
+        const user = interaction.user;
+        const channel = interaction.channel;
+
+        const confirmEmbed = new EmbedBuilder()
+          .setTitle('🔒 Ticket Closed')
+          .setDescription(`This ticket was closed by <@${user.id}>.\n\n**Reason:**\n${reason}`)
+          .setColor(0xff0000);
+
+        await interaction.reply({ embeds: [confirmEmbed] });
+
+        const logChannel = interaction.guild.channels.cache.get(LOG_CHANNEL_ID);
+        if (logChannel) {
+          const logEmbed = new EmbedBuilder()
+            .setTitle('🗂️ Ticket Closed Log')
+            .addFields(
+              { name: 'Closed By', value: `<@${user.id}> (${user.tag})` },
+              { name: 'Reason', value: reason },
+              { name: 'Ticket Channel', value: `#${channel.name}` }
+            )
+            .setColor(0x5865f2)
+            .setTimestamp();
+
+          await logChannel.send({ embeds: [logEmbed] });
+        }
+
+        setTimeout(async () => {
+          await channel.delete();
+        }, 5000);
+      }
     }
   } catch (error) {
     console.error('Interaction Error:', error.message);
