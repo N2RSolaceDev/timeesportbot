@@ -73,7 +73,7 @@ client.once('ready', async () => {
     .setDescription('Please choose one of the options below to open a ticket.')
     .setColor(0x5865F2)
     .setThumbnail(guild.iconURL({ dynamic: true }))
-    .setImage('https://i.imgur.com/6QbX6yA.png ') // Optional: Add banner image
+    .setImage('https://solbot.store/logo.png ') // Optional: Add banner image
     .addFields(
       { name: '🎮 Join Team', value: 'Apply to join our team.', inline: true },
       { name: '👨‍💼 Join Staff', value: 'Apply to become staff.', inline: true },
