@@ -9,17 +9,18 @@ const {
   ModalBuilder,
   TextInputBuilder,
   TextInputStyle,
+  ChannelType,
 } = require('discord.js');
 
 require('dotenv').config();
 
+// Initialize the client with correct intents
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
-    GatewayIntentBits.GuildMembers,
-    GatewayIntentBits.GuildMemberAdd,
+    GatewayIntentBits.GuildMembers, // Covers member join events
   ],
   partials: [Partials.Channel],
 });
@@ -30,9 +31,9 @@ const BOT_TOKEN = process.env.BOT_TOKEN;
 // Channel IDs
 const TICKET_CHANNEL_ID = '1362971895716249651'; // Panel channel
 const WELCOME_CHANNEL_ID = '1390466348227891261'; // Welcome channel
-const LOG_CHANNEL_ID = '1368931765439299584';      // Log channel
-const STAFF_ROLE_ID = '1378772752558981296';       // Staff role ID
-const OWNER_ROLE_ID = '1354748863633821716';       // Owner role ID
+const LOG_CHANNEL_ID = '1368931765439299584';     // Log channel
+const STAFF_ROLE_ID = '1378772752558981296';      // Staff role ID
+const OWNER_ROLE_ID = '1354748863633821716';      // Owner role ID
 
 let ticketPanelMessage = null;
 
