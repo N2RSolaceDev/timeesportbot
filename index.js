@@ -51,11 +51,11 @@ app.get('/health', (req, res) => {
 const BOT_TOKEN = process.env.BOT_TOKEN;
 
 // Channel IDs
-const TICKET_CHANNEL_ID = '1362971895716249651'; // Panel channel
-const WELCOME_CHANNEL_ID = '1390466348227891261'; // Welcome channel
-const LOG_CHANNEL_ID = '1368931765439299584';     // Log channel
-const STAFF_ROLE_ID = '1378772752558981296';      // Staff role ID
-const OWNER_ROLE_ID = '1354748863633821716';      // Owner role ID
+const TICKET_CHANNEL_ID = process.env.TICKET_CHANNEL_ID || '1362971895716249651'; // Panel channel
+const WELCOME_CHANNEL_ID = process.env.WELCOME_CHANNEL_ID || '1390466348227891261'; // Welcome channel
+const LOG_CHANNEL_ID = process.env.LOG_CHANNEL_ID || '1368931765439299584'; // Log channel
+const STAFF_ROLE_ID = process.env.STAFF_ROLE_ID || '1378772752558981296'; // Staff role ID
+const OWNER_ROLE_ID = process.env.OWNER_ROLE_ID || '1354748863633821716'; // Owner role ID
 
 let ticketPanelMessage = null;
 
@@ -167,7 +167,6 @@ client.on('guildMemberAdd', async (member) => {
     .setTitle(`👋 Welcome to ${guild.name}, ${member.displayName}!`)
     .setDescription('We’re excited to have you here! Make sure to read the rules and enjoy your stay!')
     .setColor(0x00ff00)
-    .setImage('https://solbot.store/logo.png ') // Banner image
     .setThumbnail(member.displayAvatarURL({ dynamic: true }))
     .setFooter({ text: 'Enjoy your journey!' })
     .setTimestamp();
@@ -196,9 +195,9 @@ client.on('interactionCreate', async (interaction) => {
           });
         }
 
-        // If it's a "Join Staff" ticket, show modal
         if (customId === 'join_staff') {
-          const staffApplyModal = new ModalBuilder()
+          // Show application modal
+          const modal = new ModalBuilder()
             .setCustomId('staff_application')
             .setTitle('Staff Application');
 
@@ -208,23 +207,32 @@ client.on('interactionCreate', async (interaction) => {
             .setStyle(TextInputStyle.Short)
             .setRequired(true);
 
+          const userIdInput = new TextInputBuilder()
+            .setCustomId('user_id')
+            .setLabel("User ID")
+            .setValue(userId)
+            .setStyle(TextInputStyle.Short)
+            .setDisabled(true)
+            .setRequired(true);
+
           const resumeInput = new TextInputBuilder()
             .setCustomId('resume')
             .setLabel("Tell us about your experience")
+            .setPlaceholder("e.g., Previous roles, skills, etc.")
             .setStyle(TextInputStyle.Paragraph)
-            .setRequired(true)
-            .setPlaceholder("e.g., Previous roles, skills, etc.");
+            .setRequired(true);
 
-          const actionRow1 = new ActionRowBuilder().addComponents(fullNameInput);
-          const actionRow2 = new ActionRowBuilder().addComponents(resumeInput);
+          const row1 = new ActionRowBuilder().addComponents(fullNameInput);
+          const row2 = new ActionRowBuilder().addComponents(userIdInput);
+          const row3 = new ActionRowBuilder().addComponents(resumeInput);
 
-          staffApplyModal.addComponents(actionRow1, actionRow2);
+          modal.addComponents(row1, row2, row3);
 
-          await interaction.showModal(staffApplyModal);
+          await interaction.showModal(modal);
           return;
         }
 
-        // Otherwise create the ticket
+        // For all non-staff tickets
         let overwrites = [
           { id: guild.roles.everyone, deny: ['ViewChannel'] },
           { id: userId, allow: ['ViewChannel', 'SendMessages', 'ReadMessageHistory'] },
@@ -265,7 +273,6 @@ client.on('interactionCreate', async (interaction) => {
         });
       }
 
-      // Handle close button
       if (customId === 'close_ticket') {
         const modal = new ModalBuilder()
           .setCustomId('close_confirm_modal')
@@ -290,14 +297,14 @@ client.on('interactionCreate', async (interaction) => {
 
       if (modalId === 'staff_application') {
         const fullName = interaction.fields.getTextInputValue('full_name');
+        const userId = interaction.fields.getTextInputValue('user_id');
         const resume = interaction.fields.getTextInputValue('resume');
-        const user = interaction.user;
+
         const guild = interaction.guild;
+        const user = interaction.user;
 
-        const userId = user.id;
-
-        // Create ticket after modal submission
-        let overwrites = [
+        // Create ticket
+        const overwrites = [
           { id: guild.roles.everyone, deny: ['ViewChannel'] },
           { id: userId, allow: ['ViewChannel', 'SendMessages', 'ReadMessageHistory'] },
           { id: STAFF_ROLE_ID, allow: ['ViewChannel', 'SendMessages', 'ReadMessageHistory'] },
