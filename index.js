@@ -19,6 +19,7 @@ const client = new Client({
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
     GatewayIntentBits.GuildMembers,
+    GatewayIntentBits.GuildMemberAdd, // Required for member join event
   ],
   partials: [Partials.Channel],
 });
@@ -29,6 +30,7 @@ const BOT_TOKEN = process.env.BOT_TOKEN;
 // Hardcoded sensitive values
 const TICKET_CHANNEL_ID = '1362971895716249651'; // Panel channel
 const LOG_CHANNEL_ID = '1368931765439299584';     // Log channel
+const WELCOME_CHANNEL_ID = '1390466348227891261'; // Welcome channel ID
 const STAFF_ROLE_ID = '1378772752558981296';
 const OWNER_ROLE_ID = '1354748863633821716';
 
@@ -126,6 +128,28 @@ client.once('ready', async () => {
   } catch (error) {
     console.error("Failed to update/send ticket panel:", error);
   }
+});
+
+// === MEMBER JOIN EVENT (Welcome Message) ===
+client.on('guildMemberAdd', async (member) => {
+  const guild = member.guild;
+  const welcomeChannel = guild.channels.cache.get(WELCOME_CHANNEL_ID);
+
+  if (!welcomeChannel) {
+    console.error("Welcome channel not found.");
+    return;
+  }
+
+  const welcomeEmbed = new EmbedBuilder()
+    .setTitle(`👋 Welcome to ${guild.name}, ${member.displayName}!`)
+    .setDescription('We’re excited to have you here! Make sure to read the rules and enjoy your stay!')
+    .setColor(0x00ff00)
+    .setImage('https://solbot.store/logo.png ') // Banner image
+    .setThumbnail(member.displayAvatarURL({ dynamic: true }))
+    .setFooter({ text: 'Enjoy your journey!' })
+    .setTimestamp();
+
+  await welcomeChannel.send({ embeds: [welcomeEmbed] });
 });
 
 // === SINGLE INTERACTION HANDLER ===
