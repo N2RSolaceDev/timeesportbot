@@ -14,14 +14,12 @@ const {
 const express = require('express');
 const dotenv = require('dotenv');
 
-// Load environment variables
 dotenv.config();
 
 // Initialize Express app
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Start Express server
 app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);
 });
@@ -292,8 +290,8 @@ client.on('interactionCreate', async (interaction) => {
         const userIdInput = new TextInputBuilder()
           .setCustomId('user_id')
           .setLabel("User ID")
-          .setValue(userId)
           .setStyle(TextInputStyle.Short)
+          .setValue(userId)
           .setDisabled(true)
           .setRequired(true);
 
@@ -447,7 +445,7 @@ client.on('modalSubmit', async (interaction) => {
         .setDescription(`This ticket was closed by <@${user.id}>.\n**Reason:**\n${reason}`)
         .setColor(0xff0000);
 
-      await interaction.reply({ embeds: [confirmEmbed] });
+      await interaction.reply({ embeds: [confirmEmbed], ephemeral: true });
 
       const logChannel = interaction.guild.channels.cache.get(LOG_CHANNEL_ID);
       if (logChannel) {
