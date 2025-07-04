@@ -10,7 +10,7 @@
     "lint": "eslint . --ext .js",
     "format": "prettier --write .",
     "test": "echo \"No tests yet. Coming soon.\"",
-    "deploy": "npm run format && npm run lint && node index.js"
+    "deploy": "npm run format && npm run lint && npm start"
   },
   "repository": {
     "type": "git",
